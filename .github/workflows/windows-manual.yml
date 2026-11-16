@@ -98,6 +98,7 @@ jobs:
             "Run: $env:BUILD_RUN"
             'Target: x86_64-pc-windows-msvc'
             'Cargo features: custom-protocol (no qa)'
+            'WebView2: reuse installed runtime; download and install only when missing'
             'Updater endpoints: none; install future builds manually'
           ) | Set-Content 'dist-personal/BUILD-INFO.txt' -Encoding utf8
           $files = @(Get-ChildItem 'dist-personal' -File | Sort-Object Name)
@@ -111,7 +112,7 @@ jobs:
             "Commit: ``$env:BUILD_SHA``"
             'Download the **winer-windows-x64-unsigned** artifact below and extract it.'
             "Run **$($installers[0].Name)** to install, then launch **winer**."
-            'Unsigned installer; includes the offline WebView2 installer. No automatic updates.'
+            'Unsigned lightweight installer; reuses WebView2 or downloads it when missing. No automatic updates.'
           ) | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
       - name: Upload the complete installer artifact

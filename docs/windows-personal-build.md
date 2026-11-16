@@ -1,6 +1,6 @@
 # Fork 的 Windows 手动构建
 
-本流程生成 Windows 10/11 x64 的 release 安装包，无需作者的更新签名密钥或其他私有 Secrets，也不创建或发布 GitHub Release。安装包与程序未做 Authenticode 代码签名，不生成更新签名。Windows 可能提示发布者未知；本流程不修改系统防护设置。
+本流程生成 Windows 10/11 x64 的轻量 release 安装包，无需作者的更新签名密钥或其他私有 Secrets，也不创建或发布 GitHub Release。安装包与程序未做 Authenticode 代码签名，不生成更新签名。Windows 可能提示发布者未知；本流程不修改系统防护设置。
 
 ## 在 GitHub Actions 构建与下载
 
@@ -19,14 +19,14 @@
 - 复用项目 Tauri NSIS 安装方式，编译前通过 `beforeBuildCommand` 构建 React 前端和客户端插件。`custom-protocol` 将前端嵌入 release 程序，插件 JS 由 `build.rs` 嵌入；不启用 `qa` 或调试特性。
 - 仓库的 `vendor/pengu-loader/core.dll` 已通过 `include_bytes!` 嵌入程序，按现有逻辑写入本机数据目录并加载；无需另外下载 Pengu Loader 的窗口程序或 .NET 依赖。本流程保留现有增强模块，不是“纯战绩模式”。
 - 对仓库内 Pengu `core.dll` 的 PE 导入表检查显示：直接依赖 Windows 系统的 `KERNEL32.dll`、`USER32.dll`、`GDI32.dll`，延迟依赖客户端提供的 `libcef.dll`；无需随 winer 再打包一份客户端 CEF，但增强模块仍需要已安装的英雄联盟客户端。
-- 安装包内含 WebView2 离线安装程序；缺失 WebView2 时由安装器处理，不要求用户手动搜寻 DLL。工作流通过目标专用的 `RUSTFLAGS` 静态链接主程序的 MSVC 运行库，安装器按 Tauri 的规则收集其他运行文件。离线 WebView2 会显著增大包体。
+- 安装器会检测 WebView2：已安装则直接复用；缺失时从微软下载引导程序，再联网安装 Evergreen Runtime。安装包不再携带完整的 WebView2 离线安装程序，缺少运行环境的电脑安装时需要能访问微软下载服务。工作流通过目标专用的 `RUSTFLAGS` 静态链接主程序的 MSVC 运行库，安装器按 Tauri 的规则收集其他运行文件。
 - ZIP 同时保留 winer 的 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和本说明。安装包不是一个单独拷出的裸 `winer.exe`。
 
 WebView2 的打包选项见 [Tauri Windows 安装文档](https://v2.tauri.app/distribute/windows-installer/#webview2-installation-options)。最终安装、启动、客户端连接及游戏内输入仍需在 Windows 真机验证。
 
 ## 更新与配置范围
 
-手动构建额外合并 `app/src-tauri/tauri.personal.conf.json`：关闭 `createUpdaterArtifacts`，并将更新地址设为空。个人构建不会从上游下载更新覆盖定制内容；现有“检查更新”入口会提示未配置更新地址，后台检查失败保持安静。以后需要新版本时，重新运行本流程并手动安装。
+手动构建额外合并 `app/src-tauri/tauri.personal.conf.json`：关闭 `createUpdaterArtifacts`，将更新地址设为空，并采用 `downloadBootstrapper` 检测并按需安装 WebView2。个人构建不会从上游下载更新覆盖定制内容；现有“检查更新”入口会提示未配置更新地址，后台检查失败保持安静。以后需要新版本时，重新运行本流程并手动安装。
 
 个人构建沿用原应用标识与安装位置，**会覆盖同一用户已安装的 winer**，不是与官方版隔离安装。安装前退出正在运行的 winer。普通发布工作流仍使用原配置，不受这份覆盖配置影响。
 
