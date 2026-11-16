@@ -48,6 +48,8 @@ open their history.
 
 ## Callout
 
+In champ select, available enemy ratings join after your team; otherwise your team goes first. In a game, select Both teams — full ratings under Automation › Callout, enable In-game sending and set a shortcut. Press it manually while the game has focus to send every rated player by champion, with a team marker even when titles are hidden. The default Enemies mode retains the summary described below.
+
 The callout is ready once every teammate's history has loaded: the first line holds the side,
 "winer rating" and the opening line if you wrote one, then one line per teammate in champ-select order from P1 through P5. Each
 line names the teammate's place in your team's list in champ select (P1 to P5, from the top) and
@@ -79,7 +81,7 @@ P1 Rift Demigod | 60% | KDA 4.1 | form 7.4 | Light in the Dark
   champ select does what **Send to team** does, without winer's window open. The panel's last line
   names the shortcut, or says where to set one.
 
-Once the game starts, the panel has two columns: **Enemies** holds the enemy to watch and the one to
+Once the game starts, the panel has two columns. In the default summary mode, **Enemies** holds the enemy to watch and the one to
 go after, chosen as [Automation](/en/guide/automation#lines-in-game) describes; **My team** holds one
 line per teammate in the same team-list order as champ select. In the game the champions are settled and are how
 players tell each other apart, so both columns name every player by champion (in 【】 in Chinese),

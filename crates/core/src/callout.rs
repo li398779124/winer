@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-/// The name every callout carries on its first line, after the side.
+/// The name a callout title carries, after the side.
 pub fn signature(language: Language) -> &'static str {
     match language {
         Language::ZhCn => "winer 战绩鉴定",
@@ -433,7 +433,8 @@ pub fn title_name(title: FormTitle, language: Language) -> &'static str {
     }
 }
 
-/// Every teammate's stats are settled and someone was rated: the lines will not change any more.
+/// Every teammate's stats are settled and someone was rated. Do not wait for unavailable enemies;
+/// any enemy lines ready at send time join this callout, and later ones can be sent by hand.
 pub fn ready(view: &ChampSelectView) -> bool {
     view.my_team
         .iter()
@@ -441,11 +442,9 @@ pub fn ready(view: &ChampSelectView) -> bool {
         && view.my_team.iter().any(|seat| seat.rating.is_some())
 }
 
-/// The first line, then one line per rated teammate, the best standing first and by score within
-/// a standing. The first line is the side, winer's name and the user's opening line, if any.
-/// A teammate's seat is their place in `view.my_team`, which lists the team as champ select does.
-/// `champion` names a champion id the way players call it (`安妮`, not `黑暗之女`). Nobody rated
-/// means nothing to say, first line included.
+/// Rated players in team order: the local team first, then any enemies whose ratings are ready.
+/// If no enemy is rated, the local team's original format is kept. With both teams, each player
+/// carries a team prefix even when titles are hidden; each title names its own side.
 pub fn lines(
     view: &ChampSelectView,
     rule: &CalloutRule,
@@ -453,7 +452,7 @@ pub fn lines(
     champion: impl Fn(i64) -> Option<String>,
 ) -> Vec<String> {
     let template = own_or(&rule.template, template(rule.style, language));
-    let players = rated_lines(
+    let mut allies = rated_lines(
         &view.my_team,
         rule.include_self,
         template,
@@ -461,14 +460,48 @@ pub fn lines(
         &champion,
         true,
     );
-    if players.is_empty() {
+    let enemies = rated_lines(&view.their_team, true, template, language, &champion, true);
+    let both = !enemies.is_empty();
+    if both {
+        allies = marked_lines(allies, false, language);
+    }
+    let ally_tag = view.side.map(|side| {
+        if both {
+            self::ally_tag(side, language)
+        } else {
+            side_tag(side, language)
+        }
+    });
+    let mut written = select_team_lines(allies, ally_tag, rule, language);
+    if both {
+        let tag = view.side.map(|side| {
+            let other = match side {
+                Side::Blue => Side::Red,
+                Side::Red => Side::Blue,
+            };
+            enemy_tag(other, language)
+        });
+        written.extend(select_team_lines(
+            marked_lines(enemies, true, language),
+            tag,
+            rule,
+            language,
+        ));
+    }
+    written
+}
+
+fn select_team_lines(
+    players: Vec<String>,
+    tag: Option<&str>,
+    rule: &CalloutRule,
+    language: Language,
+) -> Vec<String> {
+    if players.is_empty() || !rule.show_header {
         return players;
     }
-    // The side leads, then winer's name, which every callout carries, then the opening line; the
-    // rich style puts a megaphone before them.
-    let mut first = first_line(view.side.map(|side| side_tag(side, language)), language);
+    let mut first = first_line(tag, language);
     if rule.style == CalloutStyle::Rich {
-        // The bracket of a Chinese side tag needs no space after it.
         let gap = if first.starts_with('【') { "" } else { " " };
         first.insert_str(0, &format!("{MEGAPHONE}{gap}"));
     }
@@ -477,6 +510,20 @@ pub fn lines(
         first.push_str(&opening(header, language));
     }
     std::iter::once(first).chain(players).collect()
+}
+
+/// A team marker belongs to each player's line, independent of the optional group titles.
+fn marked_lines(players: Vec<String>, enemy: bool, language: Language) -> Vec<String> {
+    let prefix = match (enemy, language) {
+        (false, Language::ZhCn) => "我方",
+        (true, Language::ZhCn) => "敌方",
+        (false, Language::En) => "Ally ",
+        (true, Language::En) => "Enemy ",
+    };
+    players
+        .into_iter()
+        .map(|line| format!("{prefix}{line}"))
+        .collect()
 }
 
 /// The opening line as the first line carries it after winer's name: in English after a dot; in
@@ -498,7 +545,7 @@ fn own_or<'a>(own: &'a str, default: &'a str) -> &'a str {
     }
 }
 
-/// A callout's first line: the side's tag, if any, then winer's name, which every callout carries.
+/// A callout's title: the side's tag, if any, then winer's name.
 fn first_line(tag: Option<&str>, language: Language) -> String {
     match (tag, language) {
         (Some(tag), Language::ZhCn) => format!("{tag}{}", signature(language)),
@@ -537,6 +584,7 @@ fn rated_lines(
                 emoji,
             )
         })
+        .filter(|line| !line.trim().is_empty())
         .collect()
 }
 
@@ -991,16 +1039,19 @@ pub fn pick(team: &[Seat]) -> (Option<usize>, Option<usize>) {
     )
 }
 
-/// The in-game callout's enemy lines: a first line with the other team's side and winer's name,
+/// The in-game callout's enemy lines: an optional title with the other team's side and winer's name,
 /// then the enemy to watch and the one to go after (`pick`), each in the user's own words or the
-/// language's. A map without sides and a spectator get nothing (`my_team`), nor does a team where
-/// nobody stands out: not even the first line.
+/// language's. Full-both mode instead writes every rated enemy by champion. A map without sides
+/// or a spectator gets nothing (`my_team`); an empty selection has no title either.
 pub fn game_lines(
     view: &GameView,
     rule: &CalloutRule,
     language: Language,
     champion: impl Fn(i64) -> Option<String>,
 ) -> Vec<String> {
+    if rule.game_teams == GameTeams::Both {
+        return game_team_lines(view, rule, language, champion, true);
+    }
     let Some(mine) = my_team(view) else {
         return Vec::new();
     };
@@ -1029,53 +1080,72 @@ pub fn game_lines(
         )
     })
     .collect();
-    if players.is_empty() {
+    if players.is_empty() || !rule.show_header {
         return players;
     }
     let first = first_line(Some(enemy_tag(side_of(other), language)), language);
     std::iter::once(first).chain(players).collect()
 }
 
-/// The team's own lines in the game: a first line with the team's side and winer's name, then one
-/// line per rated teammate in the client's team order (`lines`: 1L through 5L, oneself only with
-/// `include_self`), each naming the champion (`ally_template`) where champ select names the seat
-/// and the player: in the game the team knows its players by champion, and champions no longer
-/// change. Nothing where `game_lines` has no teams to tell apart, nor while nobody is rated.
+/// Every rated teammate by champion. Full-both mode includes the local player regardless of
+/// `include_self`; the optional exclusion still applies when only the local team is selected.
 pub fn ally_lines(
     view: &GameView,
     rule: &CalloutRule,
     language: Language,
     champion: impl Fn(i64) -> Option<String>,
 ) -> Vec<String> {
+    game_team_lines(view, rule, language, champion, false)
+}
+
+/// A full team's lines share the configurable champion template. Full-both mode marks every
+/// player with their team, so hiding the titles does not make the two teams indistinguishable.
+fn game_team_lines(
+    view: &GameView,
+    rule: &CalloutRule,
+    language: Language,
+    champion: impl Fn(i64) -> Option<String>,
+    enemy: bool,
+) -> Vec<String> {
     let Some(mine) = my_team(view) else {
         return Vec::new();
     };
+    let team = if enemy { 1 - mine } else { mine };
     let template = own_or(&rule.ally_template, ally_template(rule.style, language));
-    // The game's chat shows no emoji.
+    let complete = rule.game_teams == GameTeams::Both;
     let players = rated_lines(
-        &view.teams[mine],
-        rule.include_self,
+        &view.teams[team],
+        enemy || complete || rule.include_self,
         template,
         language,
         &champion,
         false,
     );
-    if players.is_empty() {
+    let players = if complete {
+        marked_lines(players, enemy, language)
+    } else {
+        players
+    };
+    if players.is_empty() || !rule.show_header {
         return players;
     }
-    let first = first_line(Some(ally_tag(side_of(mine), language)), language);
+    let tag = if enemy {
+        enemy_tag(side_of(team), language)
+    } else {
+        ally_tag(side_of(team), language)
+    };
+    let first = first_line(Some(tag), language);
     std::iter::once(first).chain(players).collect()
 }
 
-/// The most lines one press of the shortcut types into the game. Each holds the player's keyboard
-/// for about a second (`game_chat`'s pauses), so a press types a team's first line and five
-/// players at most: the team's own lines fit whole, both teams together are cut.
-pub const GAME_LINE_LIMIT: usize = 6;
+/// Room for two full teams of five players and two optional titles. Input keeps the existing
+/// per-character and per-message pauses, foreground checks and privilege checks (`game_chat`).
+pub const GAME_LINE_LIMIT: usize = 12;
 
 /// What one press of the shortcut types in the game under `teams`: the enemy lines
 /// (`GameView::callout`), the team's (`GameView::ally_callout`) or both, the enemy's first, cut at
-/// [`GAME_LINE_LIMIT`]. The enemy's three lines at most leave the team its first line and its best
-/// two players.
+/// [`GAME_LINE_LIMIT`]. Titles count toward the limit when enabled; hiding them leaves more room
+/// for players, but does not remove the limit.
 pub fn typed(view: &GameView, teams: GameTeams) -> Vec<String> {
     let none: &[String] = &[];
     let (enemy, allies) = match teams {
@@ -1092,9 +1162,8 @@ pub fn typed(view: &GameView, teams: GameTeams) -> Vec<String> {
 }
 
 /// What one press of the shortcut would type in the game under `rule`, shown with the user's own
-/// recent form: on the red side the enemy to watch (the best tier) and the one to go after (the
-/// worst), on the blue side a team holding the user in every tier, as champ select's preview does.
-/// Their most played champion stands in for every champion.
+/// recent form: full-both mode shows five players on each side, otherwise the enemy summary or
+/// the local team's tiers. Their most played champion stands in for every champion.
 pub fn game_preview(
     me: &PlayerSummary,
     rule: &CalloutRule,
@@ -1110,15 +1179,30 @@ pub fn game_preview(
     let mut view = GameView {
         game_id: 0,
         queue_id: 0,
-        teams: vec![
-            (0..ranking.names.len())
-                .map(|tier| sample(me, &ranking, tier, tier == 0))
-                .collect(),
+        teams: if rule.game_teams == GameTeams::Both {
+            [false, true]
+                .into_iter()
+                .map(|enemy| {
+                    (0..5)
+                        .map(|index| {
+                            let point = (index as f64 + 0.5) / 5.0 * ranking.names.len() as f64;
+                            let tier = (point - 1e-9).floor().max(0.0) as usize;
+                            sample(me, &ranking, tier, !enemy && index == 0)
+                        })
+                        .collect()
+                })
+                .collect()
+        } else {
             vec![
-                sample(me, &ranking, 0, false),
-                sample(me, &ranking, worst, false),
-            ],
-        ],
+                (0..ranking.names.len())
+                    .map(|tier| sample(me, &ranking, tier, tier == 0))
+                    .collect(),
+                vec![
+                    sample(me, &ranking, 0, false),
+                    sample(me, &ranking, worst, false),
+                ],
+            ]
+        },
         sides: true,
         callout: Vec::new(),
         ally_callout: Vec::new(),
@@ -2623,22 +2707,29 @@ mod tests {
         let lines = game_preview(&me, &both, &General::default(), names);
         assert_eq!(lines.len(), GAME_LINE_LIMIT);
         assert_eq!(
-            (lines[0].as_str(), lines[3].as_str()),
+            (lines[0].as_str(), lines[6].as_str()),
             (
                 "【敌方·红色方】winer 战绩鉴定",
                 "【我方·蓝色方】winer 战绩鉴定"
             )
         );
         assert!(
-            lines[4].contains("|档位峡谷通天代|") && lines[5].contains("|档位人形防御塔|"),
-            "the enemy's, then the team's best two: {lines:?}"
+            lines[1].starts_with("敌方【ann】|档位峡谷通天代|")
+                && lines[5].starts_with("敌方【ann】|档位纯正牛马|")
+                && lines[7].starts_with("我方【ann】|档位峡谷通天代|")
+                && lines[11].starts_with("我方【ann】|档位纯正牛马|"),
+            "five enemies and five allies by champion, each with a team marker: {lines:?}"
         );
         let graded_allies = CalloutRule {
             tiers: TierSet::Grades,
             ..allies
         };
         let lines = game_preview(&me, &graded_allies, &General::default(), names);
-        assert_eq!(lines.len(), GAME_LINE_LIMIT, "eight grades, cut: {lines:?}");
+        assert_eq!(
+            lines.len(),
+            9,
+            "the title and all eight example grades: {lines:?}"
+        );
     }
 
     /// A game whose lines are already written: the enemy's three, the team's first line and five.
@@ -2653,7 +2744,7 @@ mod tests {
     }
 
     #[test]
-    fn a_press_types_the_chosen_teams_lines_the_enemys_first_and_six_at_most() {
+    fn a_press_types_the_chosen_teams_lines_without_cutting_a_full_game() {
         let view = written();
         assert_eq!(typed(&view, GameTeams::Enemies), ["敌方", "小心", "对面"]);
         assert_eq!(
@@ -2663,10 +2754,10 @@ mod tests {
         );
         assert_eq!(
             typed(&view, GameTeams::Both),
-            ["敌方", "小心", "对面", "我方", "一", "二"],
-            "both: the enemy's first, then the team's best, cut at the limit"
+            ["敌方", "小心", "对面", "我方", "一", "二", "三", "四", "五"],
+            "both: all enemy lines, then every ally line"
         );
-        assert_eq!(GAME_LINE_LIMIT, 6);
+        assert_eq!(GAME_LINE_LIMIT, 12);
         let short = GameView {
             ally_callout: vec!["我方".into(), "一".into()],
             ..written()

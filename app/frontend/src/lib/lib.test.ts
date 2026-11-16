@@ -57,6 +57,7 @@ const SETTINGS = {
       audience: "team",
       delivery: "block",
       includeSelf: true,
+      showHeader: true,
       header: "",
       template: "",
       tiers: "horsesFive",

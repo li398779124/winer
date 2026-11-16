@@ -240,7 +240,13 @@ function Callout({
           <div className="grid grid-cols-1 gap-3 @[720px]:grid-cols-2">
             {(
               [
-                ["enemies", lines, "callout.liveGameEmpty"],
+                [
+                  "enemies",
+                  lines,
+                  callout.gameTeams === "both"
+                    ? "callout.liveFullEnemyEmpty"
+                    : "callout.liveGameEmpty",
+                ],
                 ["allies", allies, "callout.liveAlliesEmpty"],
               ] as const
             ).map(([teams, shown, empty]) => (

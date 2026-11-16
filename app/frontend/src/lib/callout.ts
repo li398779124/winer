@@ -3,8 +3,8 @@
 import type { GameTeams } from "@winer/shared";
 
 /** The most lines one press types into the game (`callout::GAME_LINE_LIMIT`): each holds the
- *  player's keyboard for about a second, so a team's first line and five players at most. */
-export const GAME_LINE_LIMIT = 6;
+ *  player's keyboard while typing, with room for ten players and two optional titles. */
+export const GAME_LINE_LIMIT = 12;
 
 /** What one press types under `teams` (`callout::typed`): the enemy lines, the team's, or both,
  *  the enemy's first, cut at the limit. */

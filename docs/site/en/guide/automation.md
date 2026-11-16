@@ -141,13 +141,11 @@ by line, and a line too long for one message goes out as several.
   through.
 - **My team**: one line per teammate in the same team-list order as champ select; **Include myself** applies
   here too.
-- **Both**: the enemy lines, then your team's.
+- **Both teams — full ratings**: every rated enemy, then every rated teammate including yourself. Each player's line names the champion and carries an Enemy/Ally marker.
 
-Each line typed holds your keyboard for about a second, so one press types six lines at most: your
-team's first line and five teammates fit exactly; with **Both**, the teammates that do not fit (the
-later seats) are left out.
+A full send has room for ten player lines and two optional titles, twelve logical lines at most. Hiding titles leaves ten player lines, with no truncation at the former six-line limit. Unrated players are skipped. Existing input pauses and foreground checks remain; switching away from the game stops input.
 
-The two enemies are chosen this way:
+In the Enemies summary mode, the two enemies are chosen this way:
 
 - **Enemy to watch**: the best rated of the enemies above the middle of the scheme.
 - **Enemy to go after**: the worst rated of the enemies below it.
@@ -160,20 +158,18 @@ in-game lines.
 
 In the game the champions are settled and are how players tell each other apart, so the defaults
 name the champion alone (in 【】 in Chinese), without name or seat; where the champion is not known,
-the name stands in. All three lines can be rewritten (**Enemy to watch**, **Enemy to go after** and
-**Each teammate**) with the template's placeholders; `{champion}` is the champion the player plays
-and `{seat}` their place in their team's list. With **Both**, one press types, for example:
+the name stands in. The Enemies summary keeps the watch and target templates. My team uses Each teammate; Both teams uses Each player on both teams, the same template for each side. The default names champions with win rate, KDA and form. A custom template may still use the original placeholders.
+
+Set the callout shortcut, enable In-game sending, select Both teams — full ratings, then return to the game and close any open chat box before pressing the shortcut manually. No send starts automatically when a game opens. With titles off, lines look like:
 
 ```text
-[Enemy · Red side] winer rating
-Watch Kha'Zix: Rift Demigod, 65% in 50 games, KDA 4.6
-Go after Yasuo: Pure Workhorse, 35% in 50 games
-[My team · Blue side] winer rating
-Rift Demigod: Ahri, 60% in 50 games, KDA 4.1, form 7.4 [Patch Champion], the other team is filing a boosting report
-Human Turret: Lee Sin, 55% in 50 games, KDA 3.6, form 6.8 [Reliable Teammate], absurdly steady: carries and survives
+Enemy Top horse [Kha'Zix] | 60% | KDA 4.0 | form 7.4
+Enemy Middle horse [Lux] | 50% | KDA 2.9 | form 5.2
+Ally Top horse [Jinx] | 62% | KDA 4.2 | form 7.6
+Ally Bottom horse [Garen] | 46% | KDA 2.5 | form 4.5
 ```
 
-In the compact style a teammate's line reads "Human Turret [Lee Sin] | 55% | KDA 3.6 | form 6.8".
+This excerpt shows the format only: all ten rated players are included for two full teams, each by champion and team. Long custom lines may be split into more than one physical chat message by the existing length limit.
 
 A live preview shows what one press types, with your own recent form.
 

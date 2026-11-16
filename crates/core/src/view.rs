@@ -232,7 +232,7 @@ pub struct ChampSelectView {
     pub bench_enabled: bool,
     pub bench: Vec<i64>,
     pub rerolls_remaining: i64,
-    /// The callout as it would be sent now, one chat line per rated teammate.
+    /// The callout as sent now: rated teammates, then any rated enemies available in champ select.
     pub callout: Vec<String>,
     /// The local team's side; `None` where the mode has none (Arena, Swarm).
     pub side: Option<Side>,
@@ -299,8 +299,8 @@ pub struct GameView {
     /// The teams are the blue and the red side; Arena's and Swarm's are not.
     pub sides: bool,
     // Callout: what the shortcut types into the game's chat (`callout::typed` chooses).
-    /// The in-game callout's enemy lines as they would be typed now: the enemy to watch and the one
-    /// to go after (`callout::game_lines`); empty where there is nobody to talk about.
+    /// Enemy lines as typed now: the watch/target summary, or every rated enemy by champion when
+    /// full-both mode is selected (`callout::game_lines`); empty where no ratings are available.
     pub callout: Vec<String>,
     /// The team's own lines, every rated teammate by champion (`callout::ally_lines`); empty
     /// likewise.

@@ -1796,7 +1796,9 @@ describe("callout", () => {
     expect(panel().getByText(zhCN["callout.liveHotkeyGame.allies"])).toBeInTheDocument();
     choose({ gameTeams: "both" });
     expect(
-      panel().getByText("在游戏里按快捷键，winer 先输入对面、再输入我方，最多 6 行："),
+      panel().getByText(
+        "在游戏前台按快捷键，手动完整发送双方已评级玩家，先敌方再我方，最多 12 行：",
+      ),
     ).toBeInTheDocument();
 
     act(() =>
@@ -1965,7 +1967,7 @@ describe("callout", () => {
     ).toBeNull();
   });
 
-  it("chooses whose lines a press types in the game, six at most, and takes the team's own line", async () => {
+  it("chooses whose lines a press types in the game, twelve at most, and takes the team's own line", async () => {
     const backend = demoBackend();
     const call = vi.spyOn(backend, "call");
     const { user, nav } = await renderApp(backend);
@@ -1975,7 +1977,7 @@ describe("callout", () => {
       within(teams).getByRole("radio", { name: "对面" }),
       "the enemy lines by default",
     ).toBeChecked();
-    expect(screen.getByText(/每按一次最多输入 6 行/), "the cap, in the hint").toBeInTheDocument();
+    expect(screen.getByText(/每按一次最多输入 12 行/), "the cap, in the hint").toBeInTheDocument();
     const saved = (change: Partial<CalloutRule>) =>
       waitFor(() =>
         expect(call).toHaveBeenCalledWith("set_settings", {
@@ -1994,15 +1996,18 @@ describe("callout", () => {
     expect(screen.getByText(/^【阿狸】\|档位峡谷通天代\|近50场胜率60%/)).toBeInTheDocument();
     expect(screen.queryByText("【敌方·红色方】winer 战绩鉴定")).toBeNull();
 
-    await user.click(within(teams).getByRole("radio", { name: "双方" }));
+    await user.click(within(teams).getByRole("radio", { name: "双方完整评级" }));
     await saved({ gameTeams: "both" });
-    // As one press would: the enemy's three lines, then the team's first line and its best two.
+    // Full teams: five enemies and five allies, with an optional title for each.
     const enemy = await screen.findByText("【敌方·红色方】winer 战绩鉴定");
-    expect(within(enemy.closest("ol") as HTMLElement).getAllByRole("listitem")).toHaveLength(6);
-    expect(screen.getByText(/^【阿狸】\|档位人形防御塔\|/)).toBeInTheDocument();
-    expect(screen.queryByText(/^峡谷公务员【阿狸】，/), "cut at the limit").toBeNull();
+    expect(within(enemy.closest("ol") as HTMLElement).getAllByRole("listitem")).toHaveLength(12);
+    expect(screen.getByText(/^我方【阿狸】\|档位人形防御塔\|/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/^我方【阿狸】\|档位纯正牛马\|/),
+      "the last ally also fits",
+    ).toBeInTheDocument();
 
-    const ally = screen.getByRole("textbox", { name: zhCN["callout.ally"] });
+    const ally = screen.getByRole("textbox", { name: zhCN["callout.everyPlayer"] });
     expect(ally).toHaveAttribute(
       "placeholder",
       "【{champion}】|档位{standing}|近{games}场胜率{winRate}|KDA{kda}|战力{score}",

@@ -27,11 +27,13 @@ Recent form reads how each game was played, not only wins and KDA: the score of 
   queues whose type names the computer as the opponent (Doom Bots, for one); the tutorial counts as
   well.
 - Remakes among the 50 are shown, and count toward no win, KDA, streak or form.
-- In champ select, in game and in a lobby only the mode being played counts, never mixed with
-  another: Summoner's Rift (ranked, normal, quickplay) apart from ARAM (classic and Hextech), Arena
-  and the rotating modes each on their own. With fewer than 50 games of it, the games there are
-  count, and the fewer they are the harder they are pulled toward the average; with none, the
-  player gets no tier there. The History page reads every mode.
+- In champ select, in game and in a lobby only the mode being played counts: Summoner's Rift
+  (ranked, normal, quickplay), classic ARAM and Hextech ARAM have separate samples, as do Arena
+  and each rotating mode. Hextech ARAM's win rate, KDA, streak, form and tier use Hextech games
+  only; classic ARAM uses classic games only. With fewer than 50 games, only those games count,
+  with stronger shrinkage toward the average; with none, the player gets no tier there. Both
+  ARAMs keep the existing ARAM scoring weights and champion-role corrections. The History
+  overview still reads every mode.
 - The games come from the shard's match-history server first, with all ten players of each: the
   newest 50, then 50 further back, until there are 50 games that count as above, 100 games at most:
   older games are not read. Where the server cannot be read (a shard other than
@@ -147,6 +149,10 @@ player's tier in champ select also depends on the teammates, and can differ from
 page's.
 
 ## Callout
+
+In champ select, any rated enemies available join after the local team, with a team marker on each player's line when both teams are present. Without enemy data the local team goes first; automatic sending still happens once per champ select. **Show callout title** can hide the entire title without leaving a blank line.
+
+In a game, **Both teams — full ratings** sends every rated player by champion when the shortcut is pressed manually: ten player lines for two full teams, twelve with titles on. The original enemy watch/target summary remains under **Enemies**. See [Lines in game](/en/guide/automation#lines-in-game).
 
 One line per teammate, kept in champ-select order from P1 through P5; an unrated teammate is skipped, and a tier never rearranges the lines. **Callout style** in **Automation › Callout** picks the
 default line:

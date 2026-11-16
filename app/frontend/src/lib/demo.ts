@@ -670,7 +670,7 @@ function champSelect(): ChampSelectView {
 /** The demo team in a ranked game on the blue side against five rated players on the red side,
  *  the enemy to watch, the one to go after and the team's own lines written as the core writes
  *  them: every player by champion. */
-export function demoGame(): GameView {
+export function demoGame(rule?: CalloutRule, language: "zh-CN" | "en" = "zh-CN"): GameView {
   const enemies: Seat[] = (
     [
       ["demo-r1", "红方上单", 157, 4, 3.4, "纯正牛马"],
@@ -694,7 +694,7 @@ export function demoGame(): GameView {
     stats: { state: "ready", ...summary(puuid, name, championId % 7, null) },
     rating: { score, tier, tiers: 5, label, grade: null, title: null, quip: null },
   }));
-  return {
+  const view: GameView = {
     gameId: 2,
     queueId: 420,
     teams: [seats().map((seat) => ({ ...seat, intent: false })), enemies],
@@ -714,6 +714,53 @@ export function demoGame(): GameView {
       "【锤石】|档位纯正牛马|近50场胜率40%|KDA2.0|战力3.9",
     ],
   };
+  if (rule?.gameTeams === "both") {
+    const teamLines = (team: Seat[], enemy: boolean): string[] => {
+      const prefix = language === "zh-CN" ? (enemy ? "敌方" : "我方") : enemy ? "Enemy " : "Ally ";
+      const players = team.flatMap((seat, index) => {
+        if (!seat.rating || seat.stats.state !== "ready" || seat.stats.recent.games === 0)
+          return [];
+        const recent = seat.stats.recent;
+        const champion =
+          CHAMPIONS.find(([id]) => id === seat.championId)?.[2] ?? seat.name?.gameName ?? "";
+        const template =
+          rule.allyTemplate.trim() ||
+          (language === "zh-CN"
+            ? `【{champion}】|档位{standing}|${rule.style === "rich" ? "近{games}场" : ""}胜率{winRate}|KDA{kda}|战力{score}`
+            : rule.style === "compact"
+              ? "{standing} [{champion}] | {winRate} | KDA {kda} | form {score}"
+              : "{standing}: {champion}, {winRate} in {games} games, KDA {kda}, form {score}{title}{quip}");
+        const values: Record<string, string> = {
+          champion,
+          standing: seat.rating.label,
+          seat: language === "zh-CN" ? `${index + 1}L` : `P${index + 1}`,
+          name: seat.name?.gameName ?? "",
+          games: String(recent.games),
+          winRate: `${Math.round((100 * recent.wins) / recent.games)}%`,
+          kda: ((recent.kills + recent.assists) / Math.max(recent.deaths, 1)).toFixed(1),
+          score: seat.rating.score.toFixed(1),
+          emoji: "",
+          title: "",
+          quip: "",
+        };
+        return [
+          `${prefix}${template.replace(/\{(\w+)\}/g, (key, name: string) => values[name] ?? key).trim()}`,
+        ];
+      });
+      if (players.length === 0 || !rule.showHeader) return players;
+      const title =
+        language === "zh-CN"
+          ? `【${enemy ? "敌方·红色方" : "我方·蓝色方"}】winer 战绩鉴定`
+          : `[${enemy ? "Enemy · Red side" : "My team · Blue side"}] winer rating`;
+      return [title, ...players];
+    };
+    view.callout = teamLines(enemies, true);
+    view.allyCallout = teamLines(view.teams[0] ?? [], false);
+  } else if (rule && !rule.showHeader) {
+    view.callout = view.callout.slice(1);
+    view.allyCallout = view.allyCallout.slice(1);
+  }
+  return view;
 }
 
 // ---- The profile tools: a wardrobe, challenges with levels, and settings backed up before. ----
@@ -954,6 +1001,7 @@ const DEFAULT_SETTINGS: Settings = {
       audience: "team",
       delivery: "block",
       includeSelf: true,
+      showHeader: true,
       header: "",
       template: "",
       tiers: "riftFive",
@@ -1038,10 +1086,10 @@ function editedLines(lines: readonly string[]): string[] {
 
 /** The tier names `rule` ranks with, best first, as the core resolves them (`callout::tier_names`):
  *  fewer than two names of the user's own stand in for none. */
-function tierNames(rule: CalloutRule): string[] {
-  if (rule.tiers !== "custom") return TIER_NAMES[rule.tiers]["zh-CN"];
+function tierNames(rule: CalloutRule, language: "zh-CN" | "en" = "zh-CN"): string[] {
+  if (rule.tiers !== "custom") return TIER_NAMES[rule.tiers][language];
   const own = rule.customTiers.map((name) => name.trim()).filter(Boolean);
-  return own.length >= 2 ? own : TIER_NAMES.horses["zh-CN"];
+  return own.length >= 2 ? own : TIER_NAMES.horses[language];
 }
 
 export function demoBackend(): Backend {
@@ -1307,6 +1355,7 @@ export function demoBackend(): Backend {
           ? `${index + 1}L: ${name}|胜率60%|KDA4.1|战力7.4`
           : `${index + 1}L: ${tierEmoji(index, names.length, graded)} ${name}|近50场胜率60%|KDA4.1|战力7.4`,
       );
+      if (!rule.showHeader) return lines;
       // As the core does: the side and winer's name lead the first line, the opening line after
       // in 【】, unless it opens with a bracket of its own.
       const header = rule.header.trim();
@@ -1450,23 +1499,70 @@ export function demoBackend(): Backend {
     get_hotkey_status: () => hotkey,
     suspend_hotkey: ({ suspended }) => setHotkey(suspended),
     ...demoLoadoutHandlers(() => settings),
-    // Callout: as the core does, the best tier to watch and the worst to go after on the red side,
-    // the user in every tier of the team on the blue side, by champion, typed as one press would.
-    preview_game_callout: ({ rule }) => {
-      const names = tierNames(rule);
-      const enemies = [
-        "【敌方·红色方】winer 战绩鉴定",
-        `小心【阿狸】|档位${names[0]}|近50场胜率60%|KDA4.1`,
-        `对面【阿狸】|档位${names[names.length - 1]}|近50场胜率60%|可以多抓`,
-      ];
-      // No emoji in the game's chat.
+    // A format sample, as in the core: full teams for both, selected enemies otherwise.
+    preview_game_callout: ({ rule, general }) => {
+      const language = general.language;
+      const names = tierNames(rule, language);
+      const both = rule.gameTeams === "both";
+      const prefix = (enemy: boolean) =>
+        language === "zh-CN" ? (enemy ? "敌方" : "我方") : enemy ? "Enemy " : "Ally ";
+      const title = (enemy: boolean) =>
+        language === "zh-CN"
+          ? `【${enemy ? "敌方·红色方" : "我方·蓝色方"}】winer 战绩鉴定`
+          : `${enemy ? "[Enemy · Red side]" : "[My team · Blue side]"} winer rating`;
+      const render = (template: string, standing: string, index: number) => {
+        const values: Record<string, string> = {
+          champion: "阿狸",
+          name: "暗夜里的光",
+          standing,
+          seat: language === "zh-CN" ? `${index + 1}L` : `P${index + 1}`,
+          games: "50",
+          winRate: "60%",
+          kda: "4.1",
+          score: "7.4",
+          emoji: "",
+          title: "",
+          quip: "",
+        };
+        return template.replace(/\{(\w+)\}/g, (key, name: string) => values[name] ?? key).trim();
+      };
+      const defaultPlayer =
+        language === "zh-CN"
+          ? rule.style === "compact"
+            ? "【{champion}】|档位{standing}|胜率{winRate}|KDA{kda}|战力{score}"
+            : "【{champion}】|档位{standing}|近{games}场胜率{winRate}|KDA{kda}|战力{score}"
+          : rule.style === "compact"
+            ? "{standing} [{champion}] | {winRate} | KDA {kda} | form {score}"
+            : "{standing}: {champion}, {winRate} in {games} games, KDA {kda}, form {score}{title}{quip}";
+      const playerTemplate = rule.allyTemplate.trim() || defaultPlayer;
+      const samples = both
+        ? Array.from(
+            { length: 5 },
+            (_, index) =>
+              names[Math.max(0, Math.floor(((index + 0.5) / 5) * names.length - 1e-9))] ?? "",
+          )
+        : names;
       const allies = [
-        "【我方·蓝色方】winer 战绩鉴定",
-        ...names.map((name) =>
-          rule.style === "compact"
-            ? `【阿狸】|档位${name}|胜率60%|KDA4.1|战力7.4`
-            : `【阿狸】|档位${name}|近50场胜率60%|KDA4.1|战力7.4`,
+        ...(rule.showHeader ? [title(false)] : []),
+        ...samples.map(
+          (name, index) => `${both ? prefix(false) : ""}${render(playerTemplate, name, index)}`,
         ),
+      ];
+      const watch =
+        rule.watchTemplate.trim() ||
+        (language === "zh-CN"
+          ? "小心【{champion}】|档位{standing}|近{games}场胜率{winRate}|KDA{kda}"
+          : "Watch {champion}: {standing}, {winRate} in {games} games, KDA {kda}{title}");
+      const target =
+        rule.targetTemplate.trim() ||
+        (language === "zh-CN"
+          ? "对面【{champion}】|档位{standing}|近{games}场胜率{winRate}|可以多抓"
+          : "Go after {champion}: {standing}, {winRate} in {games} games");
+      const enemies = [
+        ...(rule.showHeader ? [title(true)] : []),
+        ...(both
+          ? samples.map((name, index) => `${prefix(true)}${render(playerTemplate, name, index)}`)
+          : [render(watch, names[0] ?? "", 0), render(target, names[names.length - 1] ?? "", 1)]),
       ];
       return typedLines(enemies, allies, rule.gameTeams);
     },

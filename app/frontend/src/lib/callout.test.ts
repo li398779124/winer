@@ -18,8 +18,11 @@ describe("the in-game callout", () => {
       "我方",
       "一",
       "二",
+      "三",
+      "四",
+      "五",
     ]);
-    expect(GAME_LINE_LIMIT).toBe(6);
+    expect(GAME_LINE_LIMIT).toBe(12);
     expect(typedLines([], allies.slice(0, 2), "both")).toEqual(["我方", "一"]);
   });
 });

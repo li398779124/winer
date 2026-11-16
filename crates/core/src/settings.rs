@@ -460,7 +460,10 @@ pub struct CalloutRule {
     /// How a callout to the team goes out: one message, or a message a line.
     pub delivery: CalloutDelivery,
     pub include_self: bool,
-    /// Sent before the players' lines, as written; empty sends none.
+    /// Include the title line (side and winer signature) in champ select and in-game callouts.
+    /// Off also hides the champ-select opening line; defaults to true for existing settings.
+    pub show_header: bool,
+    /// Appended to the champ-select title when `show_header` is on; empty adds nothing.
     pub header: String,
     /// One line per player, with `{standing}`, `{seat}` (the place in champ select's list: `1L`,
     /// `P1`), `{name}`, `{champion}`, `{games}`, `{winRate}`, `{kda}`, `{score}`, `{title}` and
@@ -508,6 +511,7 @@ impl Default for CalloutRule {
             audience: Audience::Team,
             delivery: CalloutDelivery::default(),
             include_self: true,
+            show_header: true,
             header: String::new(),
             template: String::new(),
             tiers: TierSet::default(),
@@ -601,7 +605,7 @@ pub enum GameTeams {
     Enemies,
     /// Every rated teammate, as in champ select, by champion.
     Allies,
-    /// The enemy lines, then the team's.
+    /// Every rated enemy, then every rated teammate, by champion; always includes the local player.
     Both,
 }
 

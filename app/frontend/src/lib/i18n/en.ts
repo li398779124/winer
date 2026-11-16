@@ -117,7 +117,7 @@ export const en: Record<MessageKey, string> = {
   "auto.section.callout": "Callout",
   "auto.calloutAuto": "Send in champ select automatically",
   "auto.calloutAutoHint":
-    "Sent once, when every teammate's stats are in; the live page can send it any time.",
+    "Sent once when teammates' stats are ready. Rated enemies are included when available; otherwise your team goes first. In-game sending is manual with the shortcut.",
   "auto.calloutDelay": "Send after a delay",
   "auto.calloutDelayHint":
     "Wait a moment after champ select opens; stats that take longer go out as soon as they are in.",
@@ -131,11 +131,16 @@ export const en: Record<MessageKey, string> = {
   "auto.audience.team": "Team chat",
   "auto.audience.me": "Only me",
   "auto.calloutSelf": "Include myself",
+  "auto.calloutSelfHint":
+    "Controls champ select and My team in game; Both complete ratings always includes you when rated.",
   "auto.calloutStyle": "Callout style",
   "auto.calloutStyleHint":
     "Compact uses one aligned line per player. Rich adds the tier emoji and sample size. The Chinese default uses seat, tier, win rate, KDA and strength columns, omitting free-form names, titles and quips so the chat filter cannot join them. Emoji show in the client's chat only; lines typed in a game have none.",
   "auto.style.compact": "Compact",
   "auto.style.rich": "Rich",
+  "auto.showHeader": "Show callout title",
+  "auto.showHeaderHint":
+    "Applies in champ select and in game. Turn off to omit the entire title, including the side, winer rating and opening line, and start with the players.",
   "auto.header": "Opening line",
   "auto.headerHint": "Added to the first line, as “winer rating · your words”; blank adds none.",
   "auto.preview": "Preview",
@@ -228,7 +233,7 @@ export const en: Record<MessageKey, string> = {
   "live.wished": "On the wishlist",
   "live.callout": "Callout",
   "live.calloutHint":
-    "Teammates ranked by recent form: send it to team chat or keep it to yourself.",
+    "Send recent-form ratings to the team or keep them to yourself. Rated enemies are included when available; otherwise your team goes first.",
   "live.calloutEmpty": "Appears here once teammates' stats are in.",
   "live.calloutAuto": "Sent automatically",
   "live.sendTeam": "Send to team",
@@ -369,7 +374,7 @@ export const en: Record<MessageKey, string> = {
   "history.formLeftOutShort":
     "Left out, without taking a place among the 50: custom games and games against the computer, the tutorial included.",
   "history.formSame":
-    "In champ select, in game and in a lobby the numbers read the mode being played only, the Rift apart from ARAM and never mixed, and ratings, titles and callout use those.",
+    "In champ select, in game and in a lobby only the mode being played counts: the Rift, classic ARAM and Hextech ARAM have separate samples. Win rate, KDA, form, ratings, titles and callout all use that sample.",
   "history.formRuleShort":
     "Last {n}: every mode; custom games, games against the computer and remakes left out",
   "history.rankedRecord": "{queue}: wins and losses from the client's rank data, not recent form.",
@@ -1078,35 +1083,38 @@ export const en: Record<MessageKey, string> = {
     "Key presses another program sends to the game are third-party input and may break the game's terms of service; you use it at your own risk. Off by default.",
   "callout.watch": "Enemy to watch",
   "callout.target": "Enemy to go after",
+  "callout.everyPlayer": "Each player on both teams",
   "callout.ally": "Each teammate",
   "callout.linesHint":
-    "In a game everyone goes by their champion, or by name where the champion is not known. Two enemies at most: the best rated above the middle of the scheme goes in the line to watch, the worst rated below it in the line to go after, and nobody like that, no line; your team gets one line per teammate, as in champ select. The placeholders are the team line's; {champion} is the champion the player plays and {seat} their place in their team's list. Blank uses the default.",
+    "In-game defaults name the champion, falling back to the player name when unknown. Both complete ratings uses this player template for every rated player, including you, with an Ally or Enemy prefix. Enemies keeps the strongest above the middle and weakest below it; My team lists your teammates. {champion} is the current champion; other placeholders work in custom templates. Blank uses the default.",
   "callout.gameTeams": "Whose lines to type",
   "callout.gameTeamsHint":
-    "The enemy lines by default. Each line typed holds your keyboard for about a second, so one press types {n} lines at most: with Both, the enemy lines go first, then your team best first, and what does not fit is left out.",
+    "Enemies is the default. Both complete ratings sends every rated player by champion, enemies then allies; missing history or ratings are skipped. One press types {n} lines at most, enough for ten players and two optional titles. Typing occupies your keyboard.",
   "callout.gameTeams.enemies": "Enemies",
   "callout.gameTeams.allies": "My team",
-  "callout.gameTeams.both": "Both",
+  "callout.gameTeams.both": "Both complete ratings",
   "callout.preview": "Typed in game",
   "callout.previewHint":
-    "What one press types, shown with your own recent form, your team on the blue side and the enemy on the red.",
+    "The format one press types, using your own recent form across all modes. Both complete ratings shows five sample players per team; the actual number depends on available ratings.",
   "callout.inGameOn": "In-game sending on",
   "callout.inGameOff": "In-game sending off",
   "callout.liveGameHint":
-    "In a game everyone goes by their champion: the enemy lines name the one to watch and the one to go after, your team's lines every teammate. The game's chat has no API, so there is no send button here; the shortcut types them.",
+    "Choose Both complete ratings to manually send all rated players by champion. Enemies keeps the watch/go-after selection. Turn on in-game sending and set a shortcut in Automation, then return to the game, close its chat box and press the shortcut. Players without history are skipped.",
   "callout.liveGameEmpty":
     "Written here once the enemies' history has loaded; nothing while no enemy is clearly stronger or weaker than the middle.",
+  "callout.liveFullEnemyEmpty":
+    "Complete enemy lines appear once their history and ratings are ready; players without history are skipped.",
   "callout.liveAlliesEmpty": "Written here once your teammates' history has loaded.",
   "callout.liveHotkey": "The shortcut sends it to the team too:",
   "callout.liveHotkeyGame.enemies":
-    "In the game, the shortcut types the enemy lines into the team chat:",
+    "With the game in front, press the shortcut to manually type the selected enemy lines into team chat:",
   "callout.liveHotkeyGame.allies":
-    "In the game, the shortcut types your team's lines into the team chat:",
+    "With the game in front, press the shortcut to manually type your rated teammates into team chat:",
   "callout.liveHotkeyGame.both":
-    "In the game, the shortcut types the enemy lines, then your team's, {n} at most:",
+    "With the game in front, press the shortcut to manually send all rated players, enemies then allies, {n} lines at most:",
   "callout.liveNoHotkey": "Set a shortcut to send the callout to the team with one press.",
   "callout.liveNoHotkeyGame":
-    "Set a shortcut and turn on in-game sending to type the callout into the team chat in the game.",
+    "Set a shortcut, turn on in-game sending and choose Both complete ratings, then return to the game and press it to send manually.",
   "callout.liveInGameOff": "In-game sending is off: the shortcut types nothing in the game.",
   "callout.liveHotkeyFailed":
     "The callout's shortcut is not registered: another program probably holds it.",

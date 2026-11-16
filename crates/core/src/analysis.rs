@@ -108,8 +108,8 @@ pub struct Catalog<'a> {
     pub roles: &'a Roles,
 }
 
-/// The kind of game a form is narrowed to, the one being played: Summoner's Rift, the two ARAMs and
-/// Arena are a kind each, and every rotating mode (URF, One for All, …) is a kind of its own.
+/// The kind of game a form is narrowed to, the one being played: Summoner's Rift, classic ARAM,
+/// Hextech ARAM and Arena are separate kinds, as is every rotating mode (URF, One for All, …).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Focus(String);
 
@@ -122,7 +122,9 @@ impl Focus {
         }
         Some(Self(match ModeFamily::of(&mode) {
             ModeFamily::Rift => "CLASSIC".into(),
-            ModeFamily::Aram => "ARAM".into(),
+            // Both use ARAM's scoring model, but their win rate, KDA and strength read separate
+            // match samples. Keeping the mode also separates fetch windows and cached focuses.
+            ModeFamily::Aram => mode,
             ModeFamily::Arena => "CHERRY".into(),
             ModeFamily::Other => mode,
         }))
@@ -1193,14 +1195,19 @@ mod tests {
     }
 
     #[test]
-    fn every_rotating_mode_is_a_kind_of_its_own_and_the_two_arams_one() {
+    fn every_rotating_mode_and_each_aram_have_their_own_focus() {
         let urf = Focus::of("URF").unwrap();
         assert!(urf.covers("urf") && !urf.covers("ONEFORALL") && !urf.covers("CLASSIC"));
         assert_eq!(urf.family(), ModeFamily::Other);
-        let aram = Focus::of("KIWI").unwrap();
+        let aram = Focus::of("ARAM").unwrap();
         assert!(
-            aram.covers("ARAM") && aram.covers("KIWI"),
-            "ARAM and Hextech ARAM are one"
+            aram.covers("aram") && !aram.covers("KIWI"),
+            "classic ARAM excludes Hextech ARAM"
+        );
+        let hextech = Focus::of("KIWI").unwrap();
+        assert!(
+            hextech.covers("kiwi") && !hextech.covers("ARAM"),
+            "Hextech ARAM excludes classic ARAM"
         );
         assert!(
             Focus::of("SWIFTPLAY").unwrap().covers("CLASSIC"),
@@ -1243,7 +1250,7 @@ mod tests {
         games.push(custom);
         games.push(mode(game(110, true, 1, 1, 1, false), "CLASSIC"));
         assert!(
-            !window_filled(&games, &kinds, Focus::of("ARAM").as_ref()),
+            !window_filled(&games, &kinds, Focus::of("KIWI").as_ref()),
             "a custom game takes no place"
         );
         assert!(
@@ -1255,9 +1262,9 @@ mod tests {
             &kinds,
             Focus::of("CLASSIC").as_ref()
         ));
-        games.push(mode(game(120, false, 1, 1, 1, true), "ARAM"));
+        games.push(mode(game(120, false, 1, 1, 1, true), "KIWI"));
         assert!(
-            window_filled(&games, &kinds, Focus::of("ARAM").as_ref()),
+            window_filled(&games, &kinds, Focus::of("KIWI").as_ref()),
             "a remake is in the window, shown and not counted"
         );
     }

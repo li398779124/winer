@@ -1263,11 +1263,24 @@ impl Service {
         self.spawn(async move {
             for attempt in 1..=5 {
                 let data = catalog::load(&client.lcu).await;
+                if !service.is_current(&client) {
+                    return;
+                }
                 let complete = !data.champions.is_empty() && !data.queues.is_empty();
                 *lock(&client.data) = Some(Arc::new(data));
                 let _ = service.inner.events.send(Event::GameData);
                 // Friends' modes are named from the catalog's queues.
                 service.render_friends(&client);
+                // Once the mode is known, fill its own window rather than reusing an earlier
+                // request for all modes that may not contain enough games of the current mode.
+                if let Some(focus) = service.current_focus(&client) {
+                    for puuid in caches::players_shown(&client)
+                        .into_iter()
+                        .filter(|puuid| !puuid.is_empty())
+                    {
+                        service.ensure_player(&client, puuid, Some(focus.clone()));
+                    }
+                }
                 // History: so are the games form leaves out, which ratings shown before need.
                 service.render(&client);
                 if complete {
@@ -1571,18 +1584,16 @@ impl Service {
             view
         });
         let auto = rule.auto && settings.automation.scopes.covers(Scoped::Callout, mode);
-        let lines = view
+        let should_call = view
             .as_ref()
-            .filter(|view| auto && callout::ready(view))
-            .map(|view| view.callout.clone())
-            .filter(|lines| !lines.is_empty());
+            .is_some_and(|view| auto && callout::ready(view) && !view.callout.is_empty());
         self.patch(Patch::ChampSelect(view));
-        if let Some(lines) = lines {
+        if should_call {
             let mut live = lock(&client.live);
             if !std::mem::replace(&mut live.callout_sent, true) {
                 let opened = live.champ_select_opened;
                 drop(live);
-                self.call_out(client, lines, rule, opened);
+                self.call_out(client, rule, opened);
             }
         }
         if let Some(session) = gameflow {
@@ -1613,15 +1624,8 @@ impl Service {
     /// Sends the automatic callout of the champ select `opened` then, once `rule`'s delay since
     /// then has passed; not when that champ select ended or the callout was switched off
     /// meanwhile.
-    fn call_out(
-        &self,
-        client: &Client,
-        lines: Vec<String>,
-        rule: &CalloutRule,
-        opened: Option<Instant>,
-    ) {
+    fn call_out(&self, client: &Client, rule: &CalloutRule, opened: Option<Instant>) {
         let wait = callout_wait(rule, opened, Instant::now());
-        let (audience, delivery) = (rule.audience, rule.delivery);
         let (service, client) = (self.clone(), client.clone());
         self.spawn(async move {
             if !service.callout_still_due(&client, wait, opened).await {
@@ -1642,8 +1646,22 @@ impl Service {
                     }
                 }
             }
+            let rule = service.settings().automation.callout;
+            if !rule.auto || lock(&client.live).champ_select_opened != opened {
+                return;
+            }
+            // Settings may change while the delay or chat lookup waits. Use the rendered lines
+            // now, so hiding the title also applies to an automatic callout already waiting.
+            let lines = lock(&service.inner.state)
+                .champ_select
+                .as_ref()
+                .map(|view| view.callout.clone())
+                .unwrap_or_default();
+            if lines.is_empty() {
+                return;
+            }
             let result = match &chat {
-                Some(chat) => say(&client.lcu, chat, &lines, audience, delivery).await,
+                Some(chat) => say(&client.lcu, chat, &lines, rule.audience, rule.delivery).await,
                 None => Err(CoreError::Invalid("champ select chat never opened".into())),
             };
             match result {
@@ -1673,8 +1691,12 @@ impl Service {
         lock(&client.live).champ_select_opened == opened && self.settings().automation.callout.auto
     }
 
-    /// A player's stats as known now, the form read within `focus` ([`analysis::recent_form`]).
+    /// A live player's stats within the current mode. Until the mode is known, wait rather
+    /// than showing or sending an all-mode form as that mode's form.
     fn player_stats(&self, puuid: &str, focus: Option<&analysis::Focus>) -> PlayerStats {
+        let Some(focus) = focus else {
+            return PlayerStats::Loading;
+        };
         let record = match lock(&self.inner.players).get(puuid) {
             Some(PlayerEntry::Ready(record, _)) => record.clone(),
             Some(PlayerEntry::Failed(message, _)) => {
@@ -1684,7 +1706,7 @@ impl Service {
             }
             Some(PlayerEntry::Loading { .. }) | None => return PlayerStats::Loading,
         };
-        PlayerStats::Ready(Box::new(self.summarize(&record, focus)))
+        PlayerStats::Ready(Box::new(self.summarize(&record, Some(focus))))
     }
 
     /// Champions worth considering for the local player's pick on the Rift, while their own pick is
@@ -4958,7 +4980,10 @@ mod tests {
             false,
             aram(analysis::RECENT_GAMES as u32),
         );
-        assert!(fetched.serves(analysis::Focus::of("ARAM").as_ref(), &kinds));
+        assert!(
+            !fetched.serves(analysis::Focus::of("ARAM").as_ref(), &kinds),
+            "a Hextech-only window cannot serve classic ARAM"
+        );
         assert!(
             fetched.serves(None, &kinds),
             "a window's worth of games against players fills every-kind's window"
@@ -5030,13 +5055,16 @@ mod tests {
         assert!(!fresh("me") && !fresh("mate") && !fresh("foe"));
         assert!(fresh("stranger"), "not in the game");
         assert!(
-            matches!(service.player_stats("mate", None), PlayerStats::Ready(_)),
+            matches!(
+                service.player_stats("mate", analysis::Focus::of("CLASSIC").as_ref()),
+                PlayerStats::Ready(_)
+            ),
             "a view keeps what it has until the new record arrives"
         );
 
         service.scope_account("someone-else");
         assert!(matches!(
-            service.player_stats("stranger", None),
+            service.player_stats("stranger", analysis::Focus::of("CLASSIC").as_ref()),
             PlayerStats::Loading
         ));
         assert_eq!(lock(&service.inner.history).viewer(), "someone-else");

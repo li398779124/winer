@@ -251,30 +251,34 @@ function GameCallout({
         />
       </Row>
       <div className="flex flex-col gap-2 py-3">
-        <label htmlFor="callout-watch" className="text-[14px] font-medium text-fg">
-          {t("callout.watch")}
-        </label>
-        <CommitInput
-          id="callout-watch"
-          value={rule.watchTemplate}
-          maxLength={200}
-          placeholder={DEFAULT_WATCH[language]}
-          onCommit={(watchTemplate) => onChange((value) => ({ ...value, watchTemplate }))}
-          className="min-w-0"
-        />
-        <label htmlFor="callout-target" className="mt-1 text-[14px] font-medium text-fg">
-          {t("callout.target")}
-        </label>
-        <CommitInput
-          id="callout-target"
-          value={rule.targetTemplate}
-          maxLength={200}
-          placeholder={DEFAULT_TARGET[language]}
-          onCommit={(targetTemplate) => onChange((value) => ({ ...value, targetTemplate }))}
-          className="min-w-0"
-        />
+        {rule.gameTeams !== "both" && (
+          <>
+            <label htmlFor="callout-watch" className="text-[14px] font-medium text-fg">
+              {t("callout.watch")}
+            </label>
+            <CommitInput
+              id="callout-watch"
+              value={rule.watchTemplate}
+              maxLength={200}
+              placeholder={DEFAULT_WATCH[language]}
+              onCommit={(watchTemplate) => onChange((value) => ({ ...value, watchTemplate }))}
+              className="min-w-0"
+            />
+            <label htmlFor="callout-target" className="mt-1 text-[14px] font-medium text-fg">
+              {t("callout.target")}
+            </label>
+            <CommitInput
+              id="callout-target"
+              value={rule.targetTemplate}
+              maxLength={200}
+              placeholder={DEFAULT_TARGET[language]}
+              onCommit={(targetTemplate) => onChange((value) => ({ ...value, targetTemplate }))}
+              className="min-w-0"
+            />
+          </>
+        )}
         <label htmlFor="callout-ally" className="mt-1 text-[14px] font-medium text-fg">
-          {t("callout.ally")}
+          {t(rule.gameTeams === "both" ? "callout.everyPlayer" : "callout.ally")}
         </label>
         <div className="flex items-center gap-2">
           <CommitInput
@@ -381,7 +385,7 @@ function CalloutPanel({
           />
         </Row>
       )}
-      <Row label={t("auto.calloutSelf")}>
+      <Row label={t("auto.calloutSelf")} help={t("auto.calloutSelfHint")}>
         <Toggle
           checked={rule.includeSelf}
           onChange={(includeSelf) => onChange((value) => ({ ...value, includeSelf }))}
@@ -407,6 +411,13 @@ function CalloutPanel({
             {t("auto.schemeEdit")}
           </Button>
         </span>
+      </Row>
+      <Row label={t("auto.showHeader")} help={t("auto.showHeaderHint")}>
+        <Toggle
+          checked={rule.showHeader}
+          onChange={(showHeader) => onChange((value) => ({ ...value, showHeader }))}
+          label={t("auto.showHeader")}
+        />
       </Row>
       <Row label={t("auto.header")} help={t("auto.headerHint")} htmlFor="callout-header">
         <CommitInput

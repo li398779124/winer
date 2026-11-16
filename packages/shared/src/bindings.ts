@@ -46,7 +46,7 @@ export type ChampSelectView = { gameId: number, queueId: number, timer: TimerVie
  */
 benchEnabled: boolean, bench: Array<number>, rerollsRemaining: number, 
 /**
- * The callout as it would be sent now, one chat line per rated teammate.
+ * The callout as sent now: rated teammates, then any rated enemies available in champ select.
  */
 callout: Array<string>, 
 /**
@@ -75,8 +75,8 @@ teams: Array<Array<Seat>>,
  */
 sides: boolean, 
 /**
- * The in-game callout's enemy lines as they would be typed now: the enemy to watch and the one
- * to go after (`callout::game_lines`); empty where there is nobody to talk about.
+ * Enemy lines as typed now: the watch/target summary, or every rated enemy by champion when
+ * full-both mode is selected (`callout::game_lines`); empty where no ratings are available.
  */
 callout: Array<string>, 
 /**
@@ -610,7 +610,12 @@ delay: boolean, delayMs: number, audience: Audience,
  */
 delivery: CalloutDelivery, includeSelf: boolean, 
 /**
- * Sent before the players' lines, as written; empty sends none.
+ * Include the title line (side and winer signature) in champ select and in-game callouts.
+ * Off also hides the champ-select opening line; defaults to true for existing settings.
+ */
+showHeader: boolean, 
+/**
+ * Appended to the champ-select title when `show_header` is on; empty adds nothing.
  */
 header: string, 
 /**
