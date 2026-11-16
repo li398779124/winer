@@ -1,0 +1,23 @@
+docs/windows-personal-build.md
+  s_fe137cf0654c21::t_7879ceb1c86e8d 3,22,29
+.github/workflows/windows-manual.yml
+  s_fe137cf0654c21::t_7879ceb1c86e8d 101,115
+app/src-tauri/tauri.personal.conf.json
+  s_fe137cf0654c21::t_7879ceb1c86e8d 12-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d27b0b02519db10b90a31e03c3cf48bb8c8f27ef",
+  "prompts": {},
+  "sessions": {
+    "s_fe137cf0654c21": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1e334-1d22-7663-8e20-ff5d4c11ade1",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "jingjiu <jingjiu@dtstack.com>"
+    }
+  }
+}
